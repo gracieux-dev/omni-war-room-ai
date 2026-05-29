@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{
+  width:100%;height:320px;overflow:hidden;
+  background:#06080f;
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:flex-start;
+  font-family:'Courier New',monospace;
+  padding-top:4px;
+}
+#agent-label{
+  font-size:9px;letter-spacing:.32em;text-transform:uppercase;
+  color:#1e3a5f;height:14px;margin-bottom:5px;
+  transition:color .4s ease;
+  user-select:none;
+}
+#brain-wrap{
+  position:relative;width:520px;height:274px;overflow:hidden;
+}
+#brain-svg{
+  display:block;width:520px;height:274px;
+  overflow:visible;
+}
+#log-bubble{
+  width:480px;margin-top:5px;height:26px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10.5px;letter-spacing:.1em;
+  color:#1e3a5f;
+  border:1px solid rgba(30,58,95,.18);border-radius:3px;
+  background:rgba(4,7,14,.92);
+  padding:0 14px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  transition:color .35s ease,border-color .35s ease,opacity .2s ease;
+  user-select:none;
+}
+</style>
+</head>
+<body>
+<div id="agent-label">// WARROOM BRAIN</div>
+<div id="brain-wrap">
+<svg id="brain-svg" viewBox="0 0 520 274" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <!-- Aura radial gradient -->
+  <radialGradient id="aura-grad" cx="50%" cy="52%" r="50%">
+    <stop id="ag-in"  offset="0%"   stop-color="#1e3a5f" stop-opacity="0.18"/>
+    <stop id="ag-mid" offset="55%"  stop-color="#1e3a5f" stop-opacity="0.06"/>
+    <stop id="ag-out" offset="100%" stop-color="#1e3a5f" stop-opacity="0"/>
+  </radialGradient>
+  <!-- Soft glow filter for neurons -->
+  <filter id="ng" x="-120%" y="-120%" width="340%" height="340%" color-interpolation-filters="sRGB">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="blur"/>
+    <feComposite in="blur" in2="SourceGraphic" operator="over"/>
+  </filter>
+  <!-- Outer aura filter -->
+  <filter id="ag" x="-40%" y="-40%" width="180%" height="180%">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="18" result="b"/>
+    <feComposite in="b" in2="SourceGraphic" operator="over"/>
+  </filter>
+</defs>
+
+<!-- ── Aura ellipse ───────────────────────────────────────── -->
+<ellipse id="aura-el" cx="260" cy="148" rx="228" ry="140" fill="url(#aura-grad)" filter="url(#ag)"/>
+
+<!-- ── Brain outline silhouette ──────────────────────────── -->
+<path id="brain-bg-L"
+  d="M260,24 C222,20 182,28 150,46 C118,64 96,94 84,128 C72,162 74,198 86,226
+     C98,254 122,268 155,275 C188,282 225,282 260,280 Z"
+  fill="#040609" stroke="#0a1628" stroke-width="1.2" opacity=".9"/>
+<path id="brain-bg-R"
+  d="M260,24 C298,20 338,28 370,46 C402,64 424,94 436,128 C448,162 446,198 434,226
+     C422,254 398,268 365,275 C332,282 295,282 260,280 Z"
+  fill="#040609" stroke="#0a1628" stroke-width="1.2" opacity=".9"/>
+
+<!-- ── Sulci — left hemisphere ───────────────────────────── -->
+<g id="sulci-L" stroke="#0b1a2e" stroke-width="0.9" fill="none" opacity=".55">
+  <path d="M148,52 C145,88 140,128 136,168 C132,208 134,242 140,268"/>
+  <path d="M106,82 C108,118 104,158 100,194 C96,230 98,254 108,272"/>
+  <path d="M172,36 C178,70 182,110 180,150 C178,190 172,226 166,260"/>
+  <path d="M200,28 C210,60 216,100 214,140 C212,180 206,218 200,254"/>
+  <path d="M230,24 C242,56 248,96 246,136 C244,176 240,214 236,252"/>
+  <path d="M88,130 C96,148 94,172 90,196 C86,220 88,244 94,262"/>
+</g>
+
+<!-- ── Sulci — right hemisphere ──────────────────────────── -->
+<g id="sulci-R" stroke="#0b1a2e" stroke-width="0.9" fill="none" opacity=".55">
+  <path d="M372,52 C375,88 380,128 384,168 C388,208 386,242 380,268"/>
+  <path d="M414,82 C412,118 416,158 420,194 C424,230 422,254 412,272"/>
+  <path d="M348,36 C342,70 338,110 340,150 C342,190 348,226 354,260"/>
+  <path d="M320,28 C310,60 304,100 306,140 C308,180 314,218 320,254"/>
+  <path d="M290,24 C278,56 272,96 274,136 C276,176 280,214 284,252"/>
+  <path d="M432,130 C424,148 426,172 430,196 C434,220 432,244 426,262"/>
+</g>
+
+<!-- ── Median fissure ─────────────────────────────────────── -->
+<line x1="260" y1="28" x2="260" y2="276"
+  stroke="#0e2040" stroke-width="1.1" stroke-dasharray="5,6" opacity=".65"/>
+
+<!-- ── Synapse connections (populated by JS) ─────────────── -->
+<g id="synapses"></g>
+
+<!-- ── Neurons (populated by JS) ─────────────────────────── -->
+<g id="neurons"></g>
+
+<!-- ── Sonar rings (listen mode) ─────────────────────────── -->
+<g id="sonar-g">
+  <ellipse class="sonar-ring" cx="260" cy="148" rx="0" ry="0" fill="none" stroke="#06b6d4" stroke-width="1.4" opacity="0"/>
+  <ellipse class="sonar-ring" cx="260" cy="148" rx="0" ry="0" fill="none" stroke="#06b6d4" stroke-width="0.9" opacity="0"/>
+  <ellipse class="sonar-ring" cx="260" cy="148" rx="0" ry="0" fill="none" stroke="#06b6d4" stroke-width="0.5" opacity="0"/>
+</g>
+</svg>
+</div>
+<div id="log-bubble">_ en attente...</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ═══════════════════════════════════════════════════════════
+   NEURON DATA — 24 nodes, 12 per hemisphere
+   Coordinates within 520×274 viewBox
+════════════════════════════════════════════════════════════ */
+var N = [
+  // Left hemisphere
+  {i:0,  x:128, y:70,  z:'L'},
+  {i:1,  x:165, y:58,  z:'L'},
+  {i:2,  x:202, y:62,  z:'L'},
+  {i:3,  x:238, y:72,  z:'L'},
+  {i:4,  x:106, y:112, z:'L'},
+  {i:5,  x:148, y:98,  z:'L'},
+  {i:6,  x:186, y:92,  z:'L'},
+  {i:7,  x:224, y:100, z:'L'},
+  {i:8,  x:94,  y:154, z:'L'},
+  {i:9,  x:138, y:142, z:'L'},
+  {i:10, x:178, y:136, z:'L'},
+  {i:11, x:218, y:144, z:'L'},
+  // Right hemisphere
+  {i:12, x:392, y:70,  z:'R'},
+  {i:13, x:355, y:58,  z:'R'},
+  {i:14, x:318, y:62,  z:'R'},
+  {i:15, x:282, y:72,  z:'R'},
+  {i:16, x:414, y:112, z:'R'},
+  {i:17, x:372, y:98,  z:'R'},
+  {i:18, x:334, y:92,  z:'R'},
+  {i:19, x:296, y:100, z:'R'},
+  {i:20, x:426, y:154, z:'R'},
+  {i:21, x:382, y:142, z:'R'},
+  {i:22, x:342, y:136, z:'R'},
+  {i:23, x:302, y:144, z:'R'},
+];
+
+/* Build synapse connections (distance ≤ 98px) */
+var SYN = [];
+for(var a=0;a<N.length;a++){
+  for(var b=a+1;b<N.length;b++){
+    var dx=N[a].x-N[b].x, dy=N[a].y-N[b].y;
+    if(dx*dx+dy*dy < 98*98) SYN.push({a:a,b:b});
+  }
+}
+// Additional cross-hemisphere connections near median (to get 50+)
+for(var a=0;a<N.length;a++){
+  for(var b=0;b<N.length;b++){
+    if(a===b) continue;
+    if(N[a].z===N[b].z) continue;
+    var dx=N[a].x-N[b].x, dy=N[a].y-N[b].y;
+    var d=Math.sqrt(dx*dx+dy*dy);
+    if(d<52){
+      // check not already added
+      var dup=false;
+      for(var k=0;k<SYN.length;k++){
+        if((SYN[k].a===a&&SYN[k].b===b)||(SYN[k].a===b&&SYN[k].b===a)){dup=true;break;}
+      }
+      if(!dup) SYN.push({a:a,b:b});
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODE CONFIGS
+════════════════════════════════════════════════════════════ */
+var MODES = {
+  idle:{
+    col:'#1e3a5f', rgb:[30,58,95],
+    aura:'#1e3a5f', auraOp:.14,
+    zone:'none', speed:.55,
+    lbl:'// WARROOM BRAIN',
+    def:'_ en attente...'
+  },
+  scout:{
+    col:'#3b82f6', rgb:[59,130,246],
+    aura:'#3b82f6', auraOp:.28,
+    zone:'L', speed:2.2,
+    lbl:'// SCOUT — COLLECTE',
+    def:'collecte en cours...'
+  },
+  analyst:{
+    col:'#8b5cf6', rgb:[139,92,246],
+    aura:'#8b5cf6', auraOp:.24,
+    zone:'C', speed:1.7,
+    lbl:'// ANALYST — TRAITEMENT',
+    def:'analyse en cours...'
+  },
+  tactician:{
+    col:'#ef4444', rgb:[239,68,68],
+    aura:'#ef4444', auraOp:.38,
+    zone:'A', speed:3.8,
+    lbl:'// TACTICIAN — DÉCISION',
+    def:'stratégie en cours...'
+  },
+  persistence:{
+    col:'#10b981', rgb:[16,185,129],
+    aura:'#10b981', auraOp:.30,
+    zone:'A', speed:1.2,
+    lbl:'// PERSISTENCE — MÉMOIRE',
+    def:'sauvegarde terminée...'
+  },
+  listen:{
+    col:'#06b6d4', rgb:[6,182,212],
+    aura:'#06b6d4', auraOp:.32,
+    zone:'A', speed:1.9,
+    lbl:'// ÉCOUTE — VOCAL',
+    def:'écoute en cours...'
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════
+   SVG ELEMENT FACTORY
+════════════════════════════════════════════════════════════ */
+var NS='http://www.w3.org/2000/svg';
+var synG=document.getElementById('synapses');
+var neuG=document.getElementById('neurons');
+
+// Synapse lines
+var synEls=SYN.map(function(s){
+  var el=document.createElementNS(NS,'line');
+  el.setAttribute('x1',N[s.a].x); el.setAttribute('y1',N[s.a].y);
+  el.setAttribute('x2',N[s.b].x); el.setAttribute('y2',N[s.b].y);
+  el.setAttribute('stroke','#0d1f38');
+  el.setAttribute('stroke-width','0.55');
+  el.setAttribute('opacity','0.35');
+  synG.appendChild(el);
+  return el;
+});
+
+// Neuron element groups: glow + core + nucleus
+var neuEls=N.map(function(n){
+  var g=document.createElementNS(NS,'g');
+  var glow=document.createElementNS(NS,'circle');
+  glow.setAttribute('cx',n.x); glow.setAttribute('cy',n.y);
+  glow.setAttribute('r','9'); glow.setAttribute('fill','rgba(30,58,95,0)');
+  g.appendChild(glow);
+  var core=document.createElementNS(NS,'circle');
+  core.setAttribute('cx',n.x); core.setAttribute('cy',n.y);
+  core.setAttribute('r','2.6'); core.setAttribute('fill','rgba(30,58,95,.25)');
+  core.setAttribute('stroke','none');
+  g.appendChild(core);
+  var nuc=document.createElementNS(NS,'circle');
+  nuc.setAttribute('cx',n.x); nuc.setAttribute('cy',n.y);
+  nuc.setAttribute('r','0.9'); nuc.setAttribute('fill','rgba(255,255,255,.08)');
+  g.appendChild(nuc);
+  neuG.appendChild(g);
+  return {g:g,glow:glow,core:core,nuc:nuc};
+});
+
+var sonarRings=Array.from(document.querySelectorAll('.sonar-ring'));
+var auraEl=document.getElementById('aura-el');
+var agIn=document.getElementById('ag-in');
+var agMid=document.getElementById('ag-mid');
+var agOut=document.getElementById('ag-out');
+var labelEl=document.getElementById('agent-label');
+var logEl=document.getElementById('log-bubble');
+var svgEl=document.getElementById('brain-svg');
+
+/* ═══════════════════════════════════════════════════════════
+   ANIMATION STATE
+════════════════════════════════════════════════════════════ */
+var mode='idle', intensity=1, message='_ en attente...';
+var t=0, persistFade=0, shakeT=0, sonarT=0;
+var phOff=N.map(function(){return Math.random()*Math.PI*2;});
+var twTarget='', twCurrent='', twTimer=null;
+
+function isActive(zone,mzone){
+  if(mzone==='A'||mzone==='C') return true;
+  if(mzone==='none') return false;
+  return zone===mzone;
+}
+
+function rc(rgb,a){
+  return 'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+','+a.toFixed(3)+')';
+}
+
+/* ── Main animation loop ────────────────────────────────── */
+function frame(){
+  var cfg=MODES[mode]||MODES.idle;
+  var spd=cfg.speed*(mode==='tactician'?0.5+intensity*0.18:1.0);
+  t+=0.018*spd;
+
+  // persistence fade-to-idle
+  if(mode==='persistence') persistFade=Math.min(1,persistFade+0.007);
+  else persistFade=0;
+  var decay=Math.max(0,1-persistFade*1.9);
+
+  /* ── Aura ────────────────────────────────────────────── */
+  var aOp=cfg.auraOp*(mode==='persistence'?decay:1);
+  var aPulse=aOp*(0.65+0.35*Math.sin(t*1.6));
+  agIn.setAttribute('stop-color',cfg.aura);
+  agIn.setAttribute('stop-opacity',(aPulse*1.4).toFixed(3));
+  agMid.setAttribute('stop-color',cfg.aura);
+  agMid.setAttribute('stop-opacity',(aPulse*0.5).toFixed(3));
+  agOut.setAttribute('stop-opacity','0');
+  var arx=230+(mode==='tactician'?intensity*2.8*Math.sin(t*1.9):0);
+  var ary=142+(mode==='tactician'?intensity*1.8*Math.sin(t*1.9):0);
+  auraEl.setAttribute('rx',arx.toFixed(1));
+  auraEl.setAttribute('ry',ary.toFixed(1));
+
+  /* ── Tactician shake ─────────────────────────────────── */
+  if(mode==='tactician'&&intensity>=4){
+    shakeT+=0.38;
+    var sx=Math.sin(shakeT*8.1)*intensity*0.55;
+    var sy=Math.cos(shakeT*12.3)*intensity*0.38;
+    svgEl.setAttribute('transform','translate('+sx.toFixed(2)+','+sy.toFixed(2)+')');
+  } else {
+    if(svgEl.getAttribute('transform')) svgEl.setAttribute('transform','');
+    shakeT=0;
+  }
+
+  /* ── Synapses ─────────────────────────────────────────── */
+  var rgb=cfg.rgb;
+  for(var i=0;i<SYN.length;i++){
+    var s=SYN[i];
+    var na=N[s.a], nb=N[s.b];
+    var actA=isActive(na.z,cfg.zone), actB=isActive(nb.z,cfg.zone);
+    var el=synEls[i];
+    if(actA&&actB){
+      var wave;
+      var mx=(na.x+nb.x)/2, my=(na.y+nb.y)/2;
+      if(mode==='scout'){
+        var p=(mx-82)/192;// 0→1 across left hemi
+        wave=0.5+0.5*Math.sin(t*4.5-p*4.2);
+      } else if(mode==='analyst'){
+        var dist=Math.sqrt((mx-260)*(mx-260)+(my-148)*(my-148));
+        wave=0.5+0.5*Math.sin(t*3.2-dist*0.022);
+      } else {
+        wave=0.5+0.5*Math.sin(t*5.2-(na.x+nb.x)*0.016);
+      }
+      var op=(0.07+0.45*wave)*(mode==='persistence'?decay:1);
+      var wid=(0.5+wave*0.9).toFixed(2);
+      el.setAttribute('stroke',rc(rgb,op));
+      el.setAttribute('stroke-width',wid);
+      el.setAttribute('opacity','1');
+    } else {
+      el.setAttribute('stroke','#0d1f38');
+      el.setAttribute('stroke-width','0.5');
+      el.setAttribute('opacity','0.28');
+    }
+  }
+
+  /* ── Neurons ──────────────────────────────────────────── */
+  for(var i=0;i<N.length;i++){
+    var n=N[i];
+    var el=neuEls[i];
+    var active=isActive(n.z,cfg.zone);
+    var fd=mode==='persistence'?decay:1;
+    var wave,pulse,radius,glowOp,coreOp,nucOp;
+
+    if(active){
+      if(mode==='scout'){
+        var delay=(n.x-82)/200*2.8;
+        wave=0.5+0.5*Math.sin(t*5.5-delay+phOff[i]*0.25);
+      } else if(mode==='analyst'){
+        var dist=Math.sqrt((n.x-260)*(n.x-260)+(n.y-148)*(n.y-148));
+        wave=0.5+0.5*Math.sin(t*3.8-dist*0.02);
+      } else if(mode==='listen'){
+        wave=0.5+0.5*Math.sin(t*4+phOff[i]);
+      } else {
+        wave=0.5+0.5*Math.sin(t*6.2+phOff[i]);
+      }
+      var baseI=mode==='idle'?0.12:0.48;
+      var maxI=mode==='tactician'?Math.min(1.0,0.68+intensity*0.065):0.88;
+      pulse=(baseI+(maxI-baseI)*wave)*fd;
+      radius=2.6+wave*(1.6+intensity*0.14);
+      glowOp=pulse*0.52*(1+intensity*0.04);
+      coreOp=pulse;
+      nucOp=pulse>0.55?(pulse-0.55)*0.55:0;
+    } else {
+      wave=0.5+0.5*Math.sin(t*0.75+phOff[i]);
+      pulse=0.038+0.055*wave;
+      radius=1.9; glowOp=0.008; coreOp=pulse; nucOp=0;
+    }
+
+    var col=active?rgb:[17,34,56];
+    el.glow.setAttribute('r',(radius*3.8).toFixed(1));
+    el.glow.setAttribute('fill',rc(col,glowOp));
+    el.core.setAttribute('r',radius.toFixed(1));
+    el.core.setAttribute('fill',rc(col,coreOp));
+    el.nuc.setAttribute('fill','rgba(255,255,255,'+nucOp.toFixed(3)+')');
+
+    // Tactician discharge ring
+    if(mode==='tactician'){
+      var spark=Math.sin(t*11.5+i*0.82);
+      var thresh=1.0-intensity*0.085;
+      if(spark>thresh){
+        el.core.setAttribute('stroke',rc(rgb,.75));
+        el.core.setAttribute('stroke-width','1.3');
+      } else {
+        el.core.setAttribute('stroke','none');
+      }
+    } else {
+      el.core.setAttribute('stroke','none');
+    }
+  }
+
+  /* ── Sonar waves (listen) ────────────────────────────── */
+  if(mode==='listen'){
+    sonarT+=0.012;
+    sonarRings.forEach(function(ring,idx){
+      var phase=(sonarT+idx*0.333)%1.0;
+      ring.setAttribute('rx',(phase*225).toFixed(1));
+      ring.setAttribute('ry',(phase*138).toFixed(1));
+      ring.setAttribute('opacity',((1-phase)*0.72).toFixed(3));
+    });
+  } else {
+    if(sonarT!==0){
+      sonarT=0;
+      sonarRings.forEach(function(ring){
+        ring.setAttribute('rx','0'); ring.setAttribute('ry','0');
+        ring.setAttribute('opacity','0');
+      });
+    }
+  }
+
+  /* ── Labels ──────────────────────────────────────────── */
+  labelEl.textContent=cfg.lbl;
+  labelEl.style.color=cfg.col;
+  if(!twTimer){
+    logEl.textContent=message;
+  }
+  logEl.style.color=cfg.col;
+  logEl.style.borderColor=rc(rgb,.22);
+  // Tactician blink
+  if(mode==='tactician'&&intensity>=3){
+    logEl.style.opacity=(0.62+0.38*Math.sin(t*7.5)).toFixed(2);
+  } else {
+    logEl.style.opacity='1';
+  }
+
+  requestAnimationFrame(frame);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BRAIN CONTROLLER
+════════════════════════════════════════════════════════════ */
+var _poll=null;
+var _lastState=null;
+
+var BrainController={
+
+  setState:function(newMode,newIntensity,newMessage){
+    var prev=mode;
+    mode=MODES[newMode]?newMode:'idle';
+    intensity=Math.max(1,Math.min(5,parseInt(newIntensity)||1));
+    message=newMessage||MODES[mode].def;
+    if(mode!=='persistence'&&prev!==mode) persistFade=0;
+    if(mode!=='listen'&&twTimer){clearTimeout(twTimer);twTimer=null;twCurrent='';}
+    if(mode!=='listen') logEl.textContent=message;
+    document.dispatchEvent(new CustomEvent('brain:statechange',{
+      detail:{mode:mode,intensity:intensity,message:message}
+    }));
+  },
+
+  setTranscript:function(text){
+    if(!text) return;
+    twTarget=String(text);
+    twCurrent='';
+    if(twTimer){clearTimeout(twTimer);twTimer=null;}
+    var idx=0;
+    (function tick(){
+      if(idx<twTarget.length){
+        twCurrent+=twTarget[idx++];
+        logEl.textContent='> '+twCurrent+'_';
+        twTimer=setTimeout(tick,42);
+      } else {twTimer=null;}
+    })();
+  },
+
+  startPolling:function(jsonPath,ms){
+    if(_poll) clearInterval(_poll);
+    var url=jsonPath||'__POLL_PATH__';
+    var interval=ms||500;
+    function poll(){
+      fetch(url+'?_='+Date.now(),{cache:'no-store'})
+        .then(function(r){return r.ok?r.json():Promise.reject(r.status);})
+        .then(function(d){
+          _lastState=d;
+          BrainController.setState(d.agent||'idle',d.threat_level||1,d.log||'');
+        })
+        .catch(function(){/* silent fallback */});
+    }
+    poll();
+    _poll=setInterval(poll,interval);
+  },
+
+  stopPolling:function(){
+    if(_poll){clearInterval(_poll);_poll=null;}
+  }
+
+};
+
+window.BrainController=BrainController;
+
+/* ── Boot ─────────────────────────────────────────────────── */
+frame();
+BrainController.startPolling('__POLL_PATH__',500);
+
+})();
+</script>
+</body>
+</html>

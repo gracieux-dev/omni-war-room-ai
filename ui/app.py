@@ -5,19 +5,16 @@ import html as _html
 import signal
 import subprocess
 import time
-import streamlit.components.v1 as _st_comp
 _UI_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(_UI_DIR))   # root → agents/, tools/
 sys.path.insert(0, _UI_DIR)                     # ui/ → brain_loader
 from brain_loader import get_brain_html, write_brain_state_file
 
 import asyncio
+import concurrent.futures
 import json
 from pathlib import Path
 from datetime import datetime, timezone
-
-import nest_asyncio
-nest_asyncio.apply()
 
 import pandas as pd
 try:
@@ -102,6 +99,12 @@ def _get_graph():
         from agents.agent_graph import war_room_graph as _g
         _cached_graph = _g
     return _cached_graph
+
+
+def _run_graph(coro):
+    """Run async graph in a fresh thread+event loop — avoids anyio conflicts."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, coro).result()
 
 ROOT         = Path(__file__).parent.parent
 DATA_DIR     = ROOT / "data"
@@ -1013,7 +1016,7 @@ def make_threat_chart(history: list):
 @st.fragment
 def brain_widget() -> None:
     """Render the WarRoom Brain once — JS inside polls /app/static/worker_brain_state.json."""
-    _st_comp.html(get_brain_html(), height=320, scrolling=False)
+    st.iframe(get_brain_html(), height=320, scrolling=False)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1229,7 +1232,7 @@ with tab_control:
                 write_brain_state_file("scout", 0, target_url,
                                        f"Scraping {target_url[:55]}...")
 
-                result = asyncio.run(_get_graph().ainvoke(initial_state))
+                result = _run_graph(_get_graph().ainvoke(initial_state))
                 elapsed = time.time() - t0
 
                 _final_threat = result.get("threat_level", 0)
@@ -1400,7 +1403,7 @@ with tab_control:
                 '</script>'
                 '</body></html>'
             )
-            _st_comp.html(_alert_html, height=160, scrolling=False)
+            st.iframe(_alert_html, height=160, scrolling=False)
         else:
             st.markdown(f"""
             <div class="result-stable">
@@ -1598,7 +1601,7 @@ with tab_worker:
 
     with _w_brain_col:
         # Brain (JS polls worker_brain_state.json at 500 ms — no st.rerun needed)
-        _st_comp.html(get_brain_html(), height=330, scrolling=False)
+        st.iframe(get_brain_html(), height=330, scrolling=False)
 
     with _w_right_col:
         @st.fragment(run_every=10)

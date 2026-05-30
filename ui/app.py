@@ -91,7 +91,17 @@ def extract_url_from_voice(transcript: str) -> str:
             return url
     return ""
 
-from agents.agent_graph import war_room_graph, THREAT_THRESHOLD
+THREAT_THRESHOLD = int(os.getenv("THREAT_THRESHOLD", "3"))
+
+_cached_graph = None
+
+def _get_graph():
+    """Lazy-import war_room_graph on first Deploy click, cache at module level."""
+    global _cached_graph
+    if _cached_graph is None:
+        from agents.agent_graph import war_room_graph as _g
+        _cached_graph = _g
+    return _cached_graph
 
 ROOT         = Path(__file__).parent.parent
 DATA_DIR     = ROOT / "data"
@@ -784,7 +794,7 @@ def read_worker_log(tail: int = 40) -> str:
 # DATA HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
 
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=30)
 def load_history() -> list:
     if not HISTORY_PATH.exists():
         return []
@@ -1204,11 +1214,8 @@ with tab_control:
 
         with st.status("⚡  SWARM DEPLOYING ...", expanded=True) as status:
             _line("› Initializing Scout agent...")
-            time.sleep(0.25)
             _line("› Connecting to Bright Data MCP endpoint...")
-            time.sleep(0.3)
             _line(f"› Target locked: {target_url}")
-            time.sleep(0.2)
             _line("› Bypassing bot detection — Web Unlocker active...")
 
             t0 = time.time()
@@ -1219,14 +1226,12 @@ with tab_control:
                     "threat_level": 0, "action_plan": "",
                 }
 
-                # Brain → scout before blocking invocation
                 write_brain_state_file("scout", 0, target_url,
                                        f"Scraping {target_url[:55]}...")
 
-                result = asyncio.run(war_room_graph.ainvoke(initial_state))
+                result = asyncio.run(_get_graph().ainvoke(initial_state))
                 elapsed = time.time() - t0
 
-                # Brain → idle after scan (agent_graph nodes wrote intermediate states)
                 _final_threat = result.get("threat_level", 0)
                 write_brain_state_file("idle", _final_threat, target_url,
                                        f"Cycle done — threat {_final_threat}/5")
@@ -1239,38 +1244,30 @@ with tab_control:
                 signals = result.get("market_signals", [])
 
                 _line(f"› Raw data extracted — {len(result.get('raw_data',''))} chars")
-                time.sleep(0.1)
                 st.markdown(
                     f'<span style="font-family:\'Fira Code\',monospace;font-size:.79rem;color:{NEON_GREEN};">✓ SERP sentiment analysis complete</span>',
                     unsafe_allow_html=True,
                 )
-                time.sleep(0.1)
-                _line(f"› Groq LLaMA-3.3-70B: {len(signals)} signal(s) extracted")
-                time.sleep(0.1)
+                _line(f"› {len(signals)} signal(s) extracted — threat {threat}/5")
                 color = NEON_RED if threat >= THREAT_THRESHOLD else NEON_GREEN
                 st.markdown(
                     f'<span style="font-family:\'Fira Code\',monospace;font-size:.79rem;color:{color};">'
-                    f'{"⚠ CRITICAL —" if threat >= THREAT_THRESHOLD else "✓ STABLE —"} Threat level: {threat}/5</span>',
+                    f'{"⚠ CRITICAL" if threat >= THREAT_THRESHOLD else "✓ STABLE"} — Threat level: {threat}/5</span>',
                     unsafe_allow_html=True,
                 )
                 if threat >= THREAT_THRESHOLD:
-                    time.sleep(0.15)
                     st.markdown(
-                        f'<span style="font-family:\'Fira Code\',monospace;font-size:.79rem;color:{NEON_RED};">⚡ Tactician engaged — generating counter-strike plan...</span>',
-                        unsafe_allow_html=True,
-                    )
-                    time.sleep(0.1)
-                    st.markdown(
-                        f'<span style="font-family:\'Fira Code\',monospace;font-size:.79rem;color:{NEON_RED};">✓ Enterprise alert dispatched</span>',
+                        f'<span style="font-family:\'Fira Code\',monospace;font-size:.79rem;color:{NEON_RED};">⚡ Tactician engaged — counter-strike plan generated</span>',
                         unsafe_allow_html=True,
                     )
 
-                lbl = (
-                    f"✓ COMPLETE — Threat {threat}/5 · {len(signals)} signal(s) · {elapsed:.1f}s"
+                status.update(
+                    label=f"✓ COMPLETE — Threat {threat}/5 · {len(signals)} signal(s) · {elapsed:.1f}s",
+                    state="complete", expanded=False,
                 )
-                status.update(label=lbl, state="complete", expanded=False)
 
             except Exception as e:
+                write_brain_state_file("idle", 0, target_url, "Error — cycle aborted")
                 st.session_state["graph_error"] = str(e)
                 status.update(label="✗ SWARM ERROR", state="error", expanded=True)
 
@@ -1604,7 +1601,7 @@ with tab_worker:
         _st_comp.html(get_brain_html(), height=330, scrolling=False)
 
     with _w_right_col:
-        @st.fragment(run_every=5)
+        @st.fragment(run_every=10)
         def _w_targets():
             _bsnow  = _read_brain_sf()
             _active = _bsnow.get("target_url", "")
@@ -1649,7 +1646,7 @@ with tab_worker:
     _w_jcol, _w_acol = st.columns([3, 2], gap="medium")
 
     with _w_jcol:
-        @st.fragment(run_every=6)
+        @st.fragment(run_every=15)
         def _w_journal_frag():
             entries = _read_journal(60)
             _cls_map = {
@@ -1687,7 +1684,7 @@ with tab_worker:
         _w_journal_frag()
 
     with _w_acol:
-        @st.fragment(run_every=10)
+        @st.fragment(run_every=20)
         def _w_alerts_frag():
             _hist_a = load_history()
             _recent = [e for e in reversed(_hist_a) if e.get("threat_level",0) >= 2][:8]

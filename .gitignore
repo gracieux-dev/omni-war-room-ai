@@ -216,3 +216,18 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# OmniWarRoom — runtime data (auto-generated, never commit)
+.env
+data/*.json
+data/*.jsonl
+data/*.log
+data/*.pid
+!data/.gitkeep
+
+# Brain state (polled by JS, regenerated at runtime)
+ui/static/worker_brain_state.json
+
+# Temp/build artifacts
+summary.html
+test_run.py

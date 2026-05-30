@@ -19,10 +19,15 @@ _STATE_FILE = _STATIC / "worker_brain_state.json"
 _POLL_URL = "/app/static/worker_brain_state.json"
 
 
+_brain_html_cache: dict = {}
+
+
 def get_brain_html(poll_url: str = _POLL_URL) -> str:
-    """Read brain_component.html, inject the polling URL, return ready HTML."""
-    html = _HTML_FILE.read_text(encoding="utf-8")
-    return html.replace("__POLL_PATH__", poll_url)
+    """Read brain_component.html once, cache in memory for subsequent calls."""
+    if poll_url not in _brain_html_cache:
+        html = _HTML_FILE.read_text(encoding="utf-8")
+        _brain_html_cache[poll_url] = html.replace("__POLL_PATH__", poll_url)
+    return _brain_html_cache[poll_url]
 
 
 def write_brain_state_file(

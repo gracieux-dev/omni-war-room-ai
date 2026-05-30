@@ -136,18 +136,24 @@ async def _bg_cognify():
 
 # 3. Helpers entreprise
 
-_BRAIN_PATH = Path(__file__).parent.parent / "data" / "brain_state.json"
+import time as _time
+_BRAIN_PATH = Path(__file__).parent.parent / "ui" / "static" / "worker_brain_state.json"
 
 
 def _update_brain_state(agent: str, threat: int = 0, log: str = "") -> None:
-    """Write current agent state to brain_state.json for UI polling."""
+    """Atomically write brain state to ui/static/worker_brain_state.json for JS polling."""
     try:
         _BRAIN_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _BRAIN_PATH.write_text(
-            json.dumps({"state": agent, "threat_level": threat, "log": log[:80]},
-                       ensure_ascii=False),
-            encoding="utf-8",
-        )
+        payload = json.dumps({
+            "agent": agent,
+            "threat_level": max(0, min(5, int(threat))),
+            "target_url": "",
+            "log": log[:120],
+            "timestamp": int(_time.time()),
+        }, ensure_ascii=False)
+        _tmp = _BRAIN_PATH.with_suffix(".tmp")
+        _tmp.write_text(payload, encoding="utf-8")
+        os.replace(_tmp, _BRAIN_PATH)
     except Exception:
         pass
 

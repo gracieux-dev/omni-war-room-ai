@@ -5,6 +5,7 @@ import html as _html
 import signal
 import subprocess
 import time
+import streamlit.components.v1 as _st_comp
 _UI_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(_UI_DIR))   # root → agents/, tools/
 sys.path.insert(0, _UI_DIR)                     # ui/ → brain_loader
@@ -1016,7 +1017,7 @@ def make_threat_chart(history: list):
 @st.fragment
 def brain_widget() -> None:
     """Render the WarRoom Brain once — JS inside polls /app/static/worker_brain_state.json."""
-    st.iframe(get_brain_html(), height=320, scrolling=False)
+    _st_comp.html(get_brain_html(), height=320, scrolling=False)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1403,7 +1404,7 @@ with tab_control:
                 '</script>'
                 '</body></html>'
             )
-            st.iframe(_alert_html, height=160, scrolling=False)
+            _st_comp.html(_alert_html, height=160, scrolling=False)
         else:
             st.markdown(f"""
             <div class="result-stable">
@@ -1601,7 +1602,7 @@ with tab_worker:
 
     with _w_brain_col:
         # Brain (JS polls worker_brain_state.json at 500 ms — no st.rerun needed)
-        st.iframe(get_brain_html(), height=330, scrolling=False)
+        _st_comp.html(get_brain_html(), height=330, scrolling=False)
 
     with _w_right_col:
         @st.fragment(run_every=10)

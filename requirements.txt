@@ -37,11 +37,8 @@ plotly==6.7.0
 # Memory
 cognee==1.1.0
 
-# Voice (optional — Speechmatics REST only, no SDK methods used)
-speechmatics-python==1.11.0
+# Voice — transcription via httpx direct (no SDK needed in ui/app.py)
+# speechmatics-python removed: app.py uses httpx directly, not the SDK
 
-# TTS (optional — local only, not available on cloud platforms)
-pyttsx3==2.99
-
-# PDF generation (pitch deck)
-fpdf2==2.7.9
+# pyttsx3 removed: local TTS only, requires espeak system libs not on cloud
+# fpdf2 removed: only used by lol.py (pitch deck generator), not the web app
